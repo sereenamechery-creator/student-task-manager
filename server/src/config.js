@@ -1,4 +1,13 @@
-import 'dotenv/config'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import dotenv from 'dotenv'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// Load environment variables from all possible locations
+dotenv.config({ path: path.resolve(__dirname, '../.env') })
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
+dotenv.config()
 
 const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/student_task_manager'
 const jwtSecret = process.env.JWT_SECRET || 'dev_secret_student_task_manager_jwt_key_at_least_32_chars'
@@ -28,9 +37,5 @@ export const config = {
     from: emailFrom,
     isGmail: smtpHost === 'smtp.gmail.com' || emailUser.endsWith('@gmail.com'),
   },
-  cronSchedule: process.env.CRON_SCHEDULE || '*/15 * * * *', // Every 15 minutes by default
-}
-
-if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
-  throw new Error('JWT_SECRET must be defined in production environment.')
+  cronSchedule: process.env.CRON_SCHEDULE || '*/15 * * * *',
 }

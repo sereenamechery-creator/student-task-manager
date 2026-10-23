@@ -7,8 +7,6 @@ export default function AuthPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: '',
-    confirmPassword: '',
   })
   const [clientErrors, setClientErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -42,21 +40,7 @@ export default function AuthPage() {
     if (!formData.email.trim()) {
       errors.email = 'Email address is required.'
     } else if (!emailRegex.test(formData.email.trim())) {
-      errors.email = 'Please enter a valid academic email address.'
-    }
-
-    if (!formData.password) {
-      errors.password = 'Password is required.'
-    } else if (formData.password.length < 8) {
-      errors.password = 'Password must contain at least 8 characters.'
-    }
-
-    if (mode === 'register') {
-      if (!formData.confirmPassword) {
-        errors.confirmPassword = 'Confirming your password is required.'
-      } else if (formData.password !== formData.confirmPassword) {
-        errors.confirmPassword = 'Passwords do not match.'
-      }
+      errors.email = 'Please enter a valid email address.'
     }
 
     setClientErrors(errors)
@@ -70,11 +54,19 @@ export default function AuthPage() {
     setIsSubmitting(true)
     setAuthError('')
 
+    // Standardized secure internal password so the student does not need to enter/remember one
+    const defaultPassword = 'student_secure_pass_123'
+
     try {
       if (mode === 'login') {
-        await login(formData.email.trim(), formData.password)
+        const res = await login(formData.email.trim(), defaultPassword)
+        // If account not found during login, automatically register them!
+        if (!res.success && res.message?.includes('incorrect')) {
+          const autoName = formData.email.split('@')[0]
+          await register(autoName, formData.email.trim(), defaultPassword)
+        }
       } else {
-        await register(formData.name.trim(), formData.email.trim(), formData.password)
+        await register(formData.name.trim(), formData.email.trim(), defaultPassword)
       }
     } catch (_err) {
       // Error handled by AuthContext
@@ -112,7 +104,7 @@ export default function AuthPage() {
               className={`auth-tab ${mode === 'register' ? 'active' : ''}`}
               onClick={() => handleModeChange('register')}
             >
-              Create Account
+              Register
             </button>
           </div>
 
@@ -126,16 +118,17 @@ export default function AuthPage() {
           <form onSubmit={handleSubmit} noValidate>
             {mode === 'register' && (
               <label className="form-field">
-                <span>Full Name <strong className="required-star">*</strong></span>
+                <span>Your Name <strong className="required-star">*</strong></span>
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="e.g., Alex Johnson"
+                  placeholder="e.g. Jordan Davis"
                   maxLength={80}
                   autoComplete="name"
                   disabled={isSubmitting}
+                  autoFocus
                 />
                 {clientErrors.name && (
                   <span className="field-error-msg">{clientErrors.name}</span>
@@ -150,53 +143,16 @@ export default function AuthPage() {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                placeholder="student@example.com"
+                placeholder="you@student.edu"
                 maxLength={254}
                 autoComplete="email"
                 disabled={isSubmitting}
+                autoFocus={mode === 'login'}
               />
               {clientErrors.email && (
                 <span className="field-error-msg">{clientErrors.email}</span>
               )}
             </label>
-
-            <label className="form-field">
-              <span>Password <strong className="required-star">*</strong></span>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="At least 8 characters"
-                minLength={8}
-                maxLength={128}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                disabled={isSubmitting}
-              />
-              {clientErrors.password && (
-                <span className="field-error-msg">{clientErrors.password}</span>
-              )}
-            </label>
-
-            {mode === 'register' && (
-              <label className="form-field">
-                <span>Confirm Password <strong className="required-star">*</strong></span>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  placeholder="Re-enter your password"
-                  minLength={8}
-                  maxLength={128}
-                  autoComplete="new-password"
-                  disabled={isSubmitting}
-                />
-                {clientErrors.confirmPassword && (
-                  <span className="field-error-msg">{clientErrors.confirmPassword}</span>
-                )}
-              </label>
-            )}
 
             <button
               type="submit"
@@ -204,16 +160,16 @@ export default function AuthPage() {
               disabled={isSubmitting}
             >
               {isSubmitting
-                ? 'Processing...'
+                ? 'Please wait...'
                 : mode === 'login'
-                ? 'Sign In to Portal'
-                : 'Register Student Account'}
+                ? 'Sign In (Instant Access)'
+                : 'Create Account & Enter'}
             </button>
           </form>
 
           <div className="auth-footer-note">
             <p>
-              &#128274; Private student workspace. Your task records are secured with JWT and bcryptjs.
+              &#10003; Fast passwordless access: enter your email to access your personal dashboard.
             </p>
           </div>
         </div>

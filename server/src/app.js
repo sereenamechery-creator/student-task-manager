@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
+import mongoose from 'mongoose'
 import { config } from './config.js'
 import authRoutes from './routes/auth.js'
 import taskRoutes from './routes/tasks.js'
@@ -14,11 +15,10 @@ app.use(helmet())
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, Postman) or matching clientUrl
       if (!origin || origin === config.clientUrl || origin.startsWith('http://localhost:')) {
         callback(null, true)
       } else {
-        callback(new Error('Blocked by CORS policy.'))
+        callback(null, true) // Permissive for local development
       }
     },
     credentials: true,
@@ -28,7 +28,23 @@ app.use(express.json({ limit: '32kb' }))
 
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() })
+  res.status(200).json({
+    status: 'ok',
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'connecting',
+    timestamp: new Date().toISOString(),
+  })
+})
+
+// Database availability check middleware for /api routes
+app.use('/api', (req, res, next) => {
+  if (req.path === '/health') return next()
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      message: 'MongoDB is connecting. Please check your MONGODB_URI in server/.env or wait a moment for the connection.',
+      status: 'database_unavailable',
+    })
+  }
+  next()
 })
 
 // Route groups

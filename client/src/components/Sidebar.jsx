@@ -23,6 +23,7 @@ export default function Sidebar({
     { id: 'upcoming', label: 'Upcoming', icon: '📅', count: stats?.upcoming || 0 },
     { id: 'overdue', label: 'Overdue', icon: '⚠️', count: stats?.overdue || 0 },
     { id: 'completed', label: 'Completed', icon: '✅', count: stats?.completed || 0 },
+    { id: 'reminders', label: 'Email Reminders', icon: '✉️', count: 'Alerts' },
   ]
 
   const handleNavClick = (viewId) => {
@@ -78,14 +79,11 @@ export default function Sidebar({
           <button
             type="button"
             className="reminder-settings-trigger"
-            onClick={() => {
-              onOpenReminderModal()
-              if (onCloseMobile) onCloseMobile()
-            }}
+            onClick={() => handleNavClick('reminders')}
           >
             <span className="reminder-icon" aria-hidden="true">🔔</span>
             <div className="reminder-text">
-              <strong>Email Reminders</strong>
+              <strong>Email Reminders Area</strong>
               <span>Automated 24h Alerts</span>
             </div>
           </button>
@@ -94,8 +92,9 @@ export default function Sidebar({
             type="button"
             className="signout-button"
             onClick={onSignOut}
+            title="Log out and return to the Login / Email screen"
           >
-            <span aria-hidden="true">↪</span> Sign Out
+            <span aria-hidden="true">↪</span> Sign Out (Back to Login)
           </button>
         </div>
       </aside>

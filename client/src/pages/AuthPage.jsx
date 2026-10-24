@@ -7,6 +7,7 @@ export default function AuthPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    password: '',
   })
   const [clientErrors, setClientErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -38,9 +39,9 @@ export default function AuthPage() {
     }
 
     if (!formData.email.trim()) {
-      errors.email = 'Email address is required.'
+      errors.email = 'Student email address is required.'
     } else if (!emailRegex.test(formData.email.trim())) {
-      errors.email = 'Please enter a valid email address.'
+      errors.email = 'Please enter a valid student email address.'
     }
 
     setClientErrors(errors)
@@ -54,25 +55,28 @@ export default function AuthPage() {
     setIsSubmitting(true)
     setAuthError('')
 
-    // Standardized secure internal password so the student does not need to enter/remember one
-    const defaultPassword = 'student_secure_pass_123'
+    const finalPassword = formData.password.trim() || 'student_secure_pass_123'
 
     try {
       if (mode === 'login') {
-        const res = await login(formData.email.trim(), defaultPassword)
-        // If account not found during login, automatically register them!
+        const res = await login(formData.email.trim(), finalPassword)
         if (!res.success && res.message?.includes('incorrect')) {
           const autoName = formData.email.split('@')[0]
-          await register(autoName, formData.email.trim(), defaultPassword)
+          await register(autoName, formData.email.trim(), finalPassword)
         }
       } else {
-        await register(formData.name.trim(), formData.email.trim(), defaultPassword)
+        await register(formData.name.trim(), formData.email.trim(), finalPassword)
       }
     } catch (_err) {
-      // Error handled by AuthContext
+      // Handled by AuthContext
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleQuickDemoFill = (demoEmail) => {
+    setFormData((prev) => ({ ...prev, email: demoEmail }))
+    setClientErrors({})
   }
 
   return (
@@ -83,7 +87,7 @@ export default function AuthPage() {
             <div className="auth-brand-icon">S</div>
             <h2>Student Task &amp; Deadline Manager</h2>
             <p className="auth-subtitle">
-              ICTAK Capstone Project &bull; Full Stack MERN Application
+              ICTAK Capstone Project &bull; Student Portal Login
             </p>
           </div>
 
@@ -95,7 +99,7 @@ export default function AuthPage() {
               className={`auth-tab ${mode === 'login' ? 'active' : ''}`}
               onClick={() => handleModeChange('login')}
             >
-              Sign In
+              Student Login
             </button>
             <button
               type="button"
@@ -104,7 +108,7 @@ export default function AuthPage() {
               className={`auth-tab ${mode === 'register' ? 'active' : ''}`}
               onClick={() => handleModeChange('register')}
             >
-              Register
+              New Registration
             </button>
           </div>
 
@@ -118,7 +122,7 @@ export default function AuthPage() {
           <form onSubmit={handleSubmit} noValidate>
             {mode === 'register' && (
               <label className="form-field">
-                <span>Your Name <strong className="required-star">*</strong></span>
+                <span>Student Full Name <strong className="required-star">*</strong></span>
                 <input
                   type="text"
                   name="name"
@@ -136,22 +140,61 @@ export default function AuthPage() {
               </label>
             )}
 
+            {/* Login & Email Area */}
+            <div className="auth-email-area">
+              <label className="form-field">
+                <span>Student Email Address <strong className="required-star">*</strong></span>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="e.g. student@college.edu"
+                  maxLength={254}
+                  autoComplete="email"
+                  disabled={isSubmitting}
+                  autoFocus={mode === 'login'}
+                />
+                {clientErrors.email && (
+                  <span className="field-error-msg">{clientErrors.email}</span>
+                )}
+              </label>
+
+              <div className="demo-fill-row">
+                <span>Quick Fill:</span>
+                <button
+                  type="button"
+                  className="demo-chip"
+                  onClick={() => handleQuickDemoFill('student@test.edu')}
+                >
+                  student@test.edu
+                </button>
+                <button
+                  type="button"
+                  className="demo-chip"
+                  onClick={() => handleQuickDemoFill('alex@university.ac.in')}
+                >
+                  alex@university.ac.in
+                </button>
+              </div>
+            </div>
+
             <label className="form-field">
-              <span>Email Address <strong className="required-star">*</strong></span>
+              <span>
+                Password{' '}
+                <small className="field-hint">(Optional — leave blank for 1-click access)</small>
+              </span>
               <input
-                type="email"
-                name="email"
-                value={formData.email}
+                type="password"
+                name="password"
+                value={formData.password}
                 onChange={handleChange}
-                placeholder="you@student.edu"
-                maxLength={254}
-                autoComplete="email"
+                placeholder="Optional or leave blank"
+                minLength={8}
+                maxLength={128}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 disabled={isSubmitting}
-                autoFocus={mode === 'login'}
               />
-              {clientErrors.email && (
-                <span className="field-error-msg">{clientErrors.email}</span>
-              )}
             </label>
 
             <button
@@ -160,16 +203,16 @@ export default function AuthPage() {
               disabled={isSubmitting}
             >
               {isSubmitting
-                ? 'Please wait...'
+                ? 'Logging In...'
                 : mode === 'login'
-                ? 'Sign In (Instant Access)'
-                : 'Create Account & Enter'}
+                ? 'Sign In to Student Dashboard'
+                : 'Complete Registration & Enter'}
             </button>
           </form>
 
           <div className="auth-footer-note">
             <p>
-              &#10003; Fast passwordless access: enter your email to access your personal dashboard.
+              &#128231; Automated email reminders before deadlines are sent to your registered student email address.
             </p>
           </div>
         </div>

@@ -6,7 +6,7 @@ import StatsGrid from '../components/StatsGrid.jsx'
 import TaskCard from '../components/TaskCard.jsx'
 import TaskModal from '../components/TaskModal.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { dashboardApi, taskApi } from '../services/api.js'
+import { dashboardApi, reminderApi, taskApi } from '../services/api.js'
 
 export default function DashboardPage() {
   const { user, token, logout } = useAuth()
@@ -27,20 +27,25 @@ export default function DashboardPage() {
   // UI & Loading States
   const [loading, setLoading] = useState(true)
   const [pageError, setPageError] = useState('')
-  const [activeView, setActiveView] = useState('all') // 'all' | 'today' | 'upcoming' | 'overdue' | 'completed'
+  const [activeView, setActiveView] = useState('all') // 'all' | 'today' | 'upcoming' | 'overdue' | 'completed' | 'reminders'
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('')
   const [subjectFilter, setSubjectFilter] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [sortOrder, setSortOrder] = useState('dueDateAsc') // 'dueDateAsc' | 'dueDateDesc'
+  const [sortOrder, setSortOrder] = useState('dueDateAsc')
 
-  // Modals State
+  // Modals & Reminder State
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+
+  // Dedicated Reminders Section State
+  const [reminderStatus, setReminderStatus] = useState(null)
+  const [sendingTestEmail, setSendingTestEmail] = useState(false)
+  const [emailFeedback, setEmailFeedback] = useState({ type: '', message: '' })
 
   // Fetch data from backend
   const loadDashboardData = useCallback(async () => {
@@ -48,15 +53,17 @@ export default function DashboardPage() {
     setPageError('')
 
     try {
-      const [tasksRes, statsRes] = await Promise.all([
+      const [tasksRes, statsRes, remStatus] = await Promise.all([
         taskApi.getTasks(token),
         dashboardApi.getStats(token),
+        reminderApi.getStatus(token).catch(() => null),
       ])
       setTasks(tasksRes.tasks || [])
       setStats(statsRes)
+      if (remStatus) setReminderStatus(remStatus)
     } catch (err) {
       console.error('Failed to load dashboard data:', err)
-      setPageError(err.message || 'Could not load tasks from database. Please check connection.')
+      setPageError(err.message || 'Could not load data from database.')
     } finally {
       setLoading(false)
     }
@@ -66,7 +73,26 @@ export default function DashboardPage() {
     loadDashboardData()
   }, [loadDashboardData])
 
-  // Extract unique subjects for dropdown
+  const handleSendTestEmail = async () => {
+    setSendingTestEmail(true)
+    setEmailFeedback({ type: '', message: '' })
+    try {
+      const res = await reminderApi.sendTestEmail(token)
+      setEmailFeedback({
+        type: 'success',
+        message: res.message || `Test reminder successfully sent to ${user?.email}!`,
+      })
+    } catch (err) {
+      setEmailFeedback({
+        type: 'error',
+        message: err.message || 'Failed to dispatch email. Verify Gmail credentials in server/.env.',
+      })
+    } finally {
+      setSendingTestEmail(false)
+    }
+  }
+
+  // Extract unique subjects
   const uniqueSubjects = useMemo(() => {
     const subjects = new Set()
     tasks.forEach((t) => {
@@ -88,7 +114,6 @@ export default function DashboardPage() {
         const isComplete = task.completed || task.status === 'Completed'
         const dueDateObj = new Date(task.dueDate)
 
-        // View Filtering
         if (activeView === 'today') {
           if (isComplete || dueDateObj < startOfToday || dueDateObj > endOfToday) return false
         } else if (activeView === 'upcoming') {
@@ -99,24 +124,15 @@ export default function DashboardPage() {
           if (!isComplete) return false
         }
 
-        // Dropdown Status Filter
         if (statusFilter) {
           if (statusFilter === 'Completed' && !isComplete) return false
           if (statusFilter === 'Pending' && (task.status !== 'Pending' || isComplete)) return false
           if (statusFilter === 'In Progress' && (task.status !== 'In Progress' || isComplete)) return false
         }
 
-        // Subject Filter
-        if (subjectFilter && task.subject !== subjectFilter) {
-          return false
-        }
+        if (subjectFilter && task.subject !== subjectFilter) return false
+        if (priorityFilter && task.priority !== priorityFilter) return false
 
-        // Priority Filter
-        if (priorityFilter && task.priority !== priorityFilter) {
-          return false
-        }
-
-        // Search Query (title, subject, description)
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase().trim()
           const inTitle = task.title?.toLowerCase().includes(q)
@@ -195,6 +211,7 @@ export default function DashboardPage() {
     upcoming: 'Upcoming Deadlines',
     overdue: 'Overdue Assignments',
     completed: 'Completed Tasks',
+    reminders: 'Email Deadline Reminders Area',
   }
 
   return (
@@ -222,6 +239,7 @@ export default function DashboardPage() {
           onOpenReminderModal={() => setIsReminderModalOpen(true)}
           onToggleMobileSidebar={() => setIsMobileSidebarOpen((prev) => !prev)}
           user={user}
+          onSignOut={logout}
         />
 
         <div className="page-body">
@@ -242,121 +260,194 @@ export default function DashboardPage() {
           {/* Real-time stats calculated from MongoDB */}
           <StatsGrid stats={stats} />
 
-          {/* Filter, Search & Sorting Controls */}
-          <section className="panel-controls-card">
-            <div className="controls-header">
-              <div className="controls-title">
-                <h2>{viewTitles[activeView]}</h2>
-                <span className="task-count-badge">
-                  {loading
-                    ? 'Loading...'
-                    : `${filteredTasks.length} ${filteredTasks.length === 1 ? 'task' : 'tasks'}`}
-                </span>
-              </div>
-
-              <div className="controls-filters">
-                {activeView === 'all' && (
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    aria-label="Filter by task status"
-                  >
-                    <option value="">All Statuses</option>
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
-                  </select>
-                )}
-
-                <select
-                  value={subjectFilter}
-                  onChange={(e) => setSubjectFilter(e.target.value)}
-                  aria-label="Filter by subject"
-                >
-                  <option value="">All Subjects</option>
-                  {uniqueSubjects.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={priorityFilter}
-                  onChange={(e) => setPriorityFilter(e.target.value)}
-                  aria-label="Filter by priority"
-                >
-                  <option value="">All Priorities</option>
-                  <option value="High">High</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Low">Low</option>
-                </select>
-
+          {/* When 'reminders' view is active: show the dedicated Email Area */}
+          {activeView === 'reminders' ? (
+            <section className="reminder-area-panel">
+              <div className="reminder-area-header">
+                <div>
+                  <p className="eyebrow">AUTOMATED NOTIFICATIONS &bull; NODEMAILER + CRON</p>
+                  <h2>Email Deadline Reminders Area</h2>
+                  <p className="subtitle">
+                    Automated email notifications to keep you on schedule before academic deadlines.
+                  </p>
+                </div>
                 <button
                   type="button"
-                  className="sort-toggle-btn"
-                  onClick={() =>
-                    setSortOrder((prev) => (prev === 'dueDateAsc' ? 'dueDateDesc' : 'dueDateAsc'))
-                  }
-                  title={`Sort: Due Date ${sortOrder === 'dueDateAsc' ? 'Earliest First' : 'Latest First'}`}
-                  aria-label={`Sort due date ${sortOrder === 'dueDateAsc' ? 'ascending' : 'descending'}`}
+                  className="primary-button"
+                  onClick={handleSendTestEmail}
+                  disabled={sendingTestEmail}
                 >
-                  <span>↕</span> {sortOrder === 'dueDateAsc' ? 'Earliest Due' : 'Latest Due'}
+                  {sendingTestEmail ? 'Sending Test...' : '✉️ Send Test Email to My Inbox'}
                 </button>
               </div>
-            </div>
 
-            {/* Task List or States */}
-            {loading ? (
-              <div className="state-card loading-state">
-                <div className="spinner" />
-                <p>Loading your assignments from MongoDB...</p>
+              {emailFeedback.message && (
+                <div
+                  className={`feedback-alert ${emailFeedback.type === 'success' ? 'feedback-success' : 'feedback-error'}`}
+                  role="alert"
+                >
+                  {emailFeedback.message}
+                </div>
+              )}
+
+              <div className="reminder-info-cards-grid">
+                <article className="reminder-info-card">
+                  <div className="card-tag">DESTINATION EMAIL</div>
+                  <strong className="card-value">{user?.email}</strong>
+                  <p className="card-desc">
+                    All deadline alerts for your registered courses and tasks are dispatched directly to this address.
+                  </p>
+                </article>
+
+                <article className="reminder-info-card">
+                  <div className="card-tag">SERVICE STATUS</div>
+                  <strong className="card-value">
+                    {reminderStatus?.enabled ? 'Active (Gmail / SMTP)' : 'Active (Local Scheduler)'}
+                  </strong>
+                  <p className="card-desc">
+                    Background worker checks deadlines every 15 minutes using <code>node-cron</code>.
+                  </p>
+                </article>
+
+                <article className="reminder-info-card">
+                  <div className="card-tag">NOTIFICATION TIMING</div>
+                  <strong className="card-value">24h Prior &amp; Day-Of</strong>
+                  <p className="card-desc">
+                    You receive email alerts approximately 24 hours before a cutoff, and on the morning of due dates.
+                  </p>
+                </article>
               </div>
-            ) : filteredTasks.length > 0 ? (
-              <div className="task-list">
-                {filteredTasks.map((task) => (
-                  <TaskCard
-                    key={task._id}
-                    task={task}
-                    onToggleStatus={handleToggleTaskStatus}
-                    onEdit={handleOpenEdit}
-                    onDelete={handleDeleteTask}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="state-card empty-state">
-                <div className="empty-icon" aria-hidden="true">&#9745;</div>
-                <h3>
-                  {searchQuery || subjectFilter || priorityFilter || statusFilter
-                    ? 'No matching tasks found'
-                    : activeView === 'completed'
-                    ? 'No completed tasks yet'
-                    : activeView === 'overdue'
-                    ? 'No overdue assignments'
-                    : 'Your task list is clear!'}
-                </h3>
+
+              <div className="reminder-guide-box">
+                <h3>Evaluation &amp; Mentoring Guide</h3>
                 <p>
-                  {searchQuery || subjectFilter || priorityFilter || statusFilter
-                    ? 'Try adjusting your search query or reset active filters.'
-                    : activeView === 'completed'
-                    ? 'Finish an assignment and check it off to track your accomplishments.'
-                    : activeView === 'overdue'
-                    ? 'Great job keeping up with your course deadlines.'
-                    : 'Plan ahead by creating your first task or assignment.'}
+                  To test live email delivery with your personal Gmail address during your ICTAK review:
                 </p>
-                {(!searchQuery && !subjectFilter && !priorityFilter && !statusFilter) && (
+                <ol>
+                  <li>Open <code>server/.env</code> in VS Code.</li>
+                  <li>Set <code>EMAIL_USER=your_email@gmail.com</code></li>
+                  <li>Set <code>EMAIL_APP_PASSWORD=your_16_char_google_app_password</code> (generated via Google Account &gt; Security &gt; App Passwords).</li>
+                  <li>Click the <strong>&quot;Send Test Email to My Inbox&quot;</strong> button above to verify delivery.</li>
+                </ol>
+              </div>
+            </section>
+          ) : (
+            /* Regular Task Management Area */
+            <section className="panel-controls-card">
+              <div className="controls-header">
+                <div className="controls-title">
+                  <h2>{viewTitles[activeView]}</h2>
+                  <span className="task-count-badge">
+                    {loading
+                      ? 'Loading...'
+                      : `${filteredTasks.length} ${filteredTasks.length === 1 ? 'task' : 'tasks'}`}
+                  </span>
+                </div>
+
+                <div className="controls-filters">
+                  {activeView === 'all' && (
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      aria-label="Filter by task status"
+                    >
+                      <option value="">All Statuses</option>
+                      <option value="Pending">Pending</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                    </select>
+                  )}
+
+                  <select
+                    value={subjectFilter}
+                    onChange={(e) => setSubjectFilter(e.target.value)}
+                    aria-label="Filter by subject"
+                  >
+                    <option value="">All Subjects</option>
+                    {uniqueSubjects.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={priorityFilter}
+                    onChange={(e) => setPriorityFilter(e.target.value)}
+                    aria-label="Filter by priority"
+                  >
+                    <option value="">All Priorities</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+
                   <button
                     type="button"
-                    className="primary-button add-task-btn"
-                    onClick={handleOpenCreate}
+                    className="sort-toggle-btn"
+                    onClick={() =>
+                      setSortOrder((prev) => (prev === 'dueDateAsc' ? 'dueDateDesc' : 'dueDateAsc'))
+                    }
+                    title={`Sort: Due Date ${sortOrder === 'dueDateAsc' ? 'Earliest First' : 'Latest First'}`}
+                    aria-label={`Sort due date ${sortOrder === 'dueDateAsc' ? 'ascending' : 'descending'}`}
                   >
-                    + Add New Task
+                    <span>↕</span> {sortOrder === 'dueDateAsc' ? 'Earliest Due' : 'Latest Due'}
                   </button>
-                )}
+                </div>
               </div>
-            )}
-          </section>
+
+              {/* Task List or States */}
+              {loading ? (
+                <div className="state-card loading-state">
+                  <div className="spinner" />
+                  <p>Loading your assignments from MongoDB...</p>
+                </div>
+              ) : filteredTasks.length > 0 ? (
+                <div className="task-list">
+                  {filteredTasks.map((task) => (
+                    <TaskCard
+                      key={task._id}
+                      task={task}
+                      onToggleStatus={handleToggleTaskStatus}
+                      onEdit={handleOpenEdit}
+                      onDelete={handleDeleteTask}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="state-card empty-state">
+                  <div className="empty-icon" aria-hidden="true">&#9745;</div>
+                  <h3>
+                    {searchQuery || subjectFilter || priorityFilter || statusFilter
+                      ? 'No matching tasks found'
+                      : activeView === 'completed'
+                      ? 'No completed tasks yet'
+                      : activeView === 'overdue'
+                      ? 'No overdue assignments'
+                      : 'Your task list is clear!'}
+                  </h3>
+                  <p>
+                    {searchQuery || subjectFilter || priorityFilter || statusFilter
+                      ? 'Try adjusting your search query or reset active filters.'
+                      : activeView === 'completed'
+                      ? 'Finish an assignment and check it off to track your accomplishments.'
+                      : activeView === 'overdue'
+                      ? 'Great job keeping up with your course deadlines.'
+                      : 'Plan ahead by creating your first task or assignment.'}
+                  </p>
+                  {!searchQuery && !subjectFilter && !priorityFilter && !statusFilter && (
+                    <button
+                      type="button"
+                      className="primary-button add-task-btn"
+                      onClick={handleOpenCreate}
+                    >
+                      + Add New Task
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </main>
 
@@ -371,7 +462,7 @@ export default function DashboardPage() {
         task={editingTask}
       />
 
-      {/* Email Deadline Reminder Information & Test Modal */}
+      {/* Email Deadline Reminder Modal */}
       <ReminderModal
         isOpen={isReminderModalOpen}
         onClose={() => setIsReminderModalOpen(false)}

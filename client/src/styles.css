@@ -398,7 +398,152 @@ body {
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+}
+
+.reminder-nav-btn {
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid #c7d2fe;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.reminder-nav-btn:hover {
+  background-color: #c7d2fe;
+}
+
+.user-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: #f8fafc;
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+}
+
+.user-email-text {
+  font-size: 12px;
+  color: var(--text-body);
+  font-weight: 500;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signout-header-btn {
+  padding: 7px 12px;
+  background: none;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.signout-header-btn:hover {
+  background-color: #fee2e2;
+}
+
+/* === Dedicated Reminder Area Panel === */
+.reminder-area-panel {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.reminder-area-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.reminder-area-header h2 {
+  font-size: 22px;
+  color: var(--text-dark);
+  margin-top: 4px;
+}
+
+.reminder-info-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.reminder-info-card {
+  background-color: #f8fafc;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.06em;
+}
+
+.card-value {
+  font-size: 17px;
+  color: var(--text-dark);
+  word-break: break-all;
+}
+
+.card-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.reminder-guide-box {
+  background-color: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+
+.reminder-guide-box h3 {
+  font-size: 15px;
+  color: #3730a3;
+  margin-bottom: 8px;
+}
+
+.reminder-guide-box p {
+  font-size: 13px;
+  color: #4338ca;
+  margin-bottom: 10px;
+}
+
+.reminder-guide-box ol {
+  padding-left: 20px;
+  font-size: 13px;
+  color: #3730a3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .notification-btn {
@@ -1183,12 +1328,41 @@ body {
   margin-top: 2px;
 }
 
-.auth-submit-btn {
-  width: 100%;
-  justify-content: center;
-  padding: 11px;
-  margin-top: 8px;
-  font-size: 15px;
+.auth-email-area {
+  margin-bottom: 4px;
+}
+
+.demo-fill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: -8px;
+  margin-bottom: 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.demo-chip {
+  background-color: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.demo-chip:hover {
+  background-color: #c7d2fe;
+}
+
+.field-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
 }
 
 .auth-footer-note {

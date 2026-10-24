@@ -6,6 +6,7 @@ export default function Header({
   onOpenReminderModal,
   onToggleMobileSidebar,
   user,
+  onSignOut,
 }) {
   const initials = user?.name
     ? user.name
@@ -60,12 +61,12 @@ export default function Header({
       <div className="topbar-right">
         <button
           type="button"
-          className="notification-btn"
+          className="reminder-nav-btn"
           onClick={onOpenReminderModal}
           title="Email Reminder Status & Test"
           aria-label="Email reminder settings"
         >
-          <span aria-hidden="true">🔔</span>
+          <span aria-hidden="true">✉️</span> Email Alerts
         </button>
 
         <button
@@ -76,9 +77,21 @@ export default function Header({
           <span>+</span> Add Task
         </button>
 
-        <div className="top-avatar" title={`Signed in as ${user?.name} (${user?.email})`}>
-          {initials}
+        <div className="user-profile-badge" title={`Signed in as ${user?.name} (${user?.email})`}>
+          <div className="top-avatar">{initials}</div>
+          <span className="user-email-text">{user?.email}</span>
         </div>
+
+        {onSignOut && (
+          <button
+            type="button"
+            className="signout-header-btn"
+            onClick={onSignOut}
+            title="Sign out and return to Login screen"
+          >
+            Sign Out
+          </button>
+        )}
       </div>
     </header>
   )
